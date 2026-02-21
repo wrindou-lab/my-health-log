@@ -1,4 +1,6 @@
-// アイコンをReactコンポーネントとしてではなく、直接SVG的な役割にするための簡易設定
+import React, { useState, useEffect } from 'react';
+
+// アイコンを絵文字で代用し、エラーを確実に回避します
 const Sun = () => <span>☀️</span>;
 const Moon = () => <span>🌙</span>;
 const History = () => <span>📋</span>;
@@ -21,8 +23,9 @@ const App = () => {
   
   const GAS_URL = "https://script.google.com/macros/s/AKfycbxaGaeo6L708lZYNxTx0sj7fJT8T0X9sonf08pU8UAqZVkzQNRhdZ2iNXegXyNtWohawg/exec";
 
-  const [weatherInfo, setWeatherInfo] = useState(null);
-  const [isLoadingWeather, setIsLoadingWeather] = useState(false);
+  const [weatherInfo, setWeatherInfo] = useState({
+    temp: 12, condition: '晴れのち曇り', clothing: '厚手のコートやマフラーがおすすめです',
+  });
 
   const [morningData, setMorningData] = useState({
     sleepTime: '', wakeTime: '', mood: 5, note: ''
@@ -35,36 +38,7 @@ const App = () => {
   useEffect(() => {
     const savedLogs = localStorage.getItem('health_logs_v6');
     if (savedLogs) setLogs(JSON.parse(savedLogs));
-    fetchWeather();
   }, []);
-
-  const fetchWeather = () => {
-    setIsLoadingWeather(true);
-    setTimeout(() => {
-      setWeatherInfo({
-        temp: 12, condition: '晴れのち曇り', clothing: '厚手のコートやマフラーがおすすめです',
-      });
-      setIsLoadingWeather(false);
-    }, 1000);
-  };
-
-  const handleVoiceInput = (targetField, setter, currentState) => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'ja-JP';
-    recognition.onstart = () => setIsListening(true);
-    recognition.onend = () => setIsListening(false);
-    recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      if (targetField === 'morning_note') {
-        setter({ ...currentState, note: (currentState.note ? currentState.note + ' ' : '') + transcript });
-      } else if (targetField === 'night_thoughts') {
-        setter({ ...currentState, thoughts: (currentState.thoughts ? currentState.thoughts + ' ' : '') + transcript });
-      }
-    };
-    recognition.start();
-  };
 
   const saveLog = async (type) => {
     const now = new Date();
@@ -102,119 +76,92 @@ const App = () => {
     localStorage.setItem('health_logs_v6', JSON.stringify(updatedLogs));
   };
 
-  const exportToCSV = () => {
-    if (logs.length === 0) return;
-    const headers = ["日付", "時刻", "区分", "気分(10点)", "メモ/思考"];
-    const csvRows = logs.map(log => [
-      log.displayDate, log.timestamp, log.type === 'morning' ? '朝' : '夜',
-      log.data.mood, log.type === 'morning' ? log.data.note : log.data.thoughts
-    ].map(field => `"${String(field || '').replace(/"/g, '""')}"`).join(','));
-    const csvContent = "\uFEFF" + [headers.join(','), ...csvRows].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `health_log_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-  };
-
-  const renderCalendar = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
-    const firstDay = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const days = [];
-    for (let i = 0; i < firstDay; i++) days.push(<div key={`empty-${i}`} className="h-14 bg-slate-50/50"></div>);
-    for (let i = 1; i <= daysInMonth; i++) {
-      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-      const dayLogs = logs.filter(l => l.date === dateStr);
-      days.push(
-        <div key={i} className="h-14 border border-slate-100 p-1 flex flex-col items-center bg-white">
-          <span className="text-[10px] text-slate-400 self-start">{i}</span>
-          <div className="flex space-x-1">
-            {dayLogs.some(l => l.type === 'morning') && <div className="w-2 h-2 rounded-full bg-amber-400"></div>}
-            {dayLogs.some(l => l.type === 'night') && <div className="w-2 h-2 rounded-full bg-indigo-500"></div>}
-          </div>
-        </div>
-      );
-    }
-    return days;
-  };
-
   return (
     <div className="max-w-md mx-auto p-4 bg-slate-50 min-h-screen font-sans text-slate-800 pb-10">
       <header className="mb-4 flex justify-between items-center">
         <div>
-          <h1 className="text-xl font-black text-indigo-900">体調管理ログ</h1>
-          <p className="text-[10px] text-slate-500 font-bold uppercase">{new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+          <h1 className="text-xl font-black text-indigo-900 tracking-tight">体調管理ログ</h1>
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
         </div>
-        {isListening && <div className="text-red-500 animate-pulse text-[10px] font-black">Rec...</div>}
       </header>
 
-      <div className="flex mb-4 bg-white rounded-2xl p-1 shadow-sm">
-        <button onClick={() => setActiveTab('morning')} className={`flex-1 py-2.5 rounded-xl text-xs font-black ${activeTab === 'morning' ? 'bg-amber-400 text-white' : 'text-slate-400'}`}>朝</button>
-        <button onClick={() => setActiveTab('night')} className={`flex-1 py-2.5 rounded-xl text-xs font-black ${activeTab === 'night' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}>夜</button>
-        <button onClick={() => setActiveTab('history')} className={`flex-1 py-2.5 rounded-xl text-xs font-black ${activeTab === 'history' ? 'bg-slate-800 text-white' : 'text-slate-400'}`}>管理</button>
+      {/* タブ切り替え */}
+      <div className="flex mb-4 bg-white rounded-2xl p-1 shadow-sm border border-slate-200">
+        <button onClick={() => setActiveTab('morning')} className={`flex-1 py-2.5 rounded-xl text-xs transition-all flex items-center justify-center font-black ${activeTab === 'morning' ? 'bg-amber-400 text-white shadow-md' : 'text-slate-400'}`}><Sun /> 朝</button>
+        <button onClick={() => setActiveTab('night')} className={`flex-1 py-2.5 rounded-xl text-xs transition-all flex items-center justify-center font-black ${activeTab === 'night' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400'}`}><Moon /> 夜</button>
+        <button onClick={() => setActiveTab('history')} className={`flex-1 py-2.5 rounded-xl text-xs transition-all flex items-center justify-center font-black ${activeTab === 'history' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-400'}`}><History /> 管理</button>
       </div>
 
-      <main>
+      <main className="space-y-4">
         {activeTab === 'morning' && (
           <div className="space-y-4">
-            <div className="bg-white p-5 rounded-3xl shadow-sm space-y-5">
+            <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-4 rounded-3xl border border-amber-100 shadow-sm">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="bg-white p-2 rounded-2xl shadow-sm text-amber-500"><Cloud /></div>
+                    <div><p className="text-[10px] font-bold text-amber-700/60 uppercase">Weather</p><p className="text-sm font-black text-amber-900">{weatherInfo.temp}℃ / {weatherInfo.condition}</p></div>
+                  </div>
+                </div>
+            </div>
+            <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 space-y-5">
               <div className="grid grid-cols-2 gap-4">
-                <input type="time" className="p-3 bg-slate-50 rounded-2xl" value={morningData.sleepTime} onChange={e => setMorningData({...morningData, sleepTime: e.target.value})} />
-                <input type="time" className="p-3 bg-slate-50 rounded-2xl" value={morningData.wakeTime} onChange={e => setMorningData({...morningData, wakeTime: e.target.value})} />
+                <input type="time" className="w-full p-3 bg-slate-50 border-none rounded-2xl text-sm font-bold" value={morningData.sleepTime} onChange={e => setMorningData({...morningData, sleepTime: e.target.value})} />
+                <input type="time" className="w-full p-3 bg-slate-50 border-none rounded-2xl text-sm font-bold" value={morningData.wakeTime} onChange={e => setMorningData({...morningData, wakeTime: e.target.value})} />
               </div>
-              <input type="range" min="1" max="10" className="w-full" value={morningData.mood} onChange={e => setMorningData({...morningData, mood: parseInt(e.target.value)})} />
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-black">Morning Note</span>
-                <button onClick={() => handleVoiceInput('morning_note', setMorningData, morningData)} className="p-2 bg-slate-50 rounded-full"><Mic size={18}/></button>
+              <div className="space-y-3"><span className="text-[10px] font-black text-slate-300 uppercase tracking-widest ml-1">Mood ({morningData.mood}/10)</span><input type="range" min="1" max="10" className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-amber-400" value={morningData.mood} onChange={e => setMorningData({...morningData, mood: parseInt(e.target.value)})} /></div>
+              <div className="space-y-1">
+                <textarea className="w-full p-4 bg-slate-50 border-none rounded-2xl h-24 text-sm font-medium outline-none resize-none placeholder:text-slate-200" placeholder="今の心境をどうぞ..." value={morningData.note} onChange={e => setMorningData({...morningData, note: e.target.value})} />
               </div>
-              <textarea className="w-full p-4 bg-slate-50 rounded-2xl h-24 text-sm" value={morningData.note} onChange={e => setMorningData({...morningData, note: e.target.value})} />
-              <button onClick={() => saveLog('morning')} className="w-full bg-amber-400 text-white font-black py-4 rounded-2xl">Save Morning</button>
+              <button onClick={() => saveLog('morning')} className="w-full bg-amber-400 hover:bg-amber-500 text-white font-black py-4 rounded-2xl shadow-xl shadow-amber-100 transition-all uppercase tracking-widest text-sm">Save Morning</button>
             </div>
           </div>
         )}
+
         {activeTab === 'night' && (
-          <div className="bg-white p-5 rounded-3xl shadow-sm space-y-6">
-            {nightData.goodThings.map((t, i) => (
-              <input key={i} className="w-full p-3 bg-slate-50 rounded-2xl text-sm" value={t} onChange={e => { const nt = [...nightData.goodThings]; nt[i] = e.target.value; setNightData({...nightData, goodThings: nt}); }} placeholder={`${i+1}つ目のいいこと`} />
-            ))}
-            <button onClick={() => saveLog('night')} className="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl">Save Night</button>
+          <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 space-y-6">
+            <div className="space-y-3">
+              <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest ml-1">3 Good Things</span>
+              {nightData.goodThings.map((t, i) => (
+                <div key={i} className="flex items-center bg-slate-50 rounded-2xl px-3 border border-transparent focus-within:border-indigo-100 transition-all">
+                  <span className="text-indigo-200 font-black mr-2 text-xs">{i+1}</span>
+                  <input className="w-full p-2.5 bg-transparent border-none text-sm font-medium outline-none" value={t} onChange={e => { const nt = [...nightData.goodThings]; nt[i] = e.target.value; setNightData({...nightData, goodThings: nt}); }} />
+                </div>
+              ))}
+            </div>
+            <button onClick={() => saveLog('night')} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-2xl shadow-xl shadow-indigo-100 transition-all uppercase tracking-widest text-sm">Save Night</button>
           </div>
         )}
+
         {activeTab === 'history' && (
           <div className="space-y-4">
-            <div className="flex justify-between bg-white p-3 rounded-2xl">
-              <button onClick={() => setViewMode('list')} className="p-2"><List size={16}/></button>
-              <button onClick={() => setViewMode('calendar')} className="p-2"><CalendarIcon size={16}/></button>
-              <button onClick={exportToCSV} className="p-2 text-indigo-600"><Download size={16}/></button>
-              <button onClick={() => setShowConfirmClear(true)} className="p-2 text-rose-600"><Trash2 size={16}/></button>
+            <div className="flex justify-between items-center bg-white p-3 rounded-2xl border border-slate-100">
+               <button onClick={() => setShowConfirmClear(true)} className="p-2 bg-rose-50 text-rose-600 rounded-lg"><Trash2 /></button>
             </div>
-            {viewMode === 'calendar' ? (
-              <div className="bg-white p-4 rounded-3xl grid grid-cols-7 gap-1">{renderCalendar()}</div>
-            ) : (
-              <div className="space-y-3">
-                {logs.map(log => (
-                  <div key={log.id} className="p-4 bg-white rounded-3xl relative">
-                    <button onClick={() => deleteLog(log.id)} className="absolute top-4 right-4 text-slate-200"><Trash2 size={14}/></button>
-                    <span className="text-[9px] font-black">{log.displayDate} ({log.type})</span>
-                    <p className="text-xs italic truncate">「{log.type === 'morning' ? log.data.note : log.data.thoughts}」</p>
+            <div className="space-y-3">
+                {logs.length === 0 ? (
+                  <div className="text-center py-10 text-slate-300 text-xs font-bold uppercase tracking-widest">No Logs Yet</div>
+                ) : logs.map(log => (
+                  <div key={log.id} className="p-4 bg-white border border-slate-100 rounded-3xl relative">
+                    <button onClick={() => deleteLog(log.id)} className="absolute top-4 right-4 text-slate-200"><Trash2 /></button>
+                    <div className="flex items-center space-x-2 mb-2">
+                      <span className={`text-[9px] px-2 py-0.5 rounded-full font-black ${log.type === 'morning' ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700'}`}>{log.type.toUpperCase()}</span>
+                      <span className="text-[9px] font-bold text-slate-300">{log.displayDate}</span>
+                    </div>
+                    <p className="text-xs font-bold text-slate-600 leading-relaxed italic truncate">「{log.type === 'morning' ? log.data.note : log.data.thoughts}」</p>
                   </div>
                 ))}
-              </div>
-            )}
+            </div>
           </div>
         )}
       </main>
 
       {showConfirmClear && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-          <div className="bg-white w-full max-w-xs rounded-3xl p-6 space-y-4">
-            <h3 className="font-black text-center">すべて削除しますか？</h3>
+          <div className="bg-white w-full max-w-xs rounded-3xl p-6 shadow-2xl space-y-4">
+            <h3 className="font-black text-slate-800 tracking-tight text-center">記録をすべて削除しますか？</h3>
             <div className="flex space-x-3">
-              <button onClick={() => setShowConfirmClear(false)} className="flex-1 py-3 bg-slate-100 rounded-xl text-xs">Cancel</button>
-              <button onClick={() => { setLogs([]); localStorage.removeItem('health_logs_v6'); setShowConfirmClear(false); }} className="flex-1 py-3 bg-rose-600 text-white rounded-xl text-xs">Clear All</button>
+              <button onClick={() => setShowConfirmClear(false)} className="flex-1 py-3 bg-slate-100 rounded-xl text-xs font-black text-slate-400">Cancel</button>
+              <button onClick={() => { setLogs([]); localStorage.removeItem('health_logs_v6'); setShowConfirmClear(false); }} className="flex-1 py-3 bg-rose-600 rounded-xl text-xs font-black text-white">Clear All</button>
             </div>
           </div>
         </div>
