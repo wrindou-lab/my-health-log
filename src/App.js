@@ -1,8 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Sun, Moon, History, Trash2, Mic, Calendar as CalendarIcon, 
-  List, CheckCircle2, Cloud, Shirt, RefreshCw, Download, AlertCircle
-} from 'lucide-react';
+// アイコンをReactコンポーネントとしてではなく、直接SVG的な役割にするための簡易設定
+const Sun = () => <span>☀️</span>;
+const Moon = () => <span>🌙</span>;
+const History = () => <span>📋</span>;
+const Trash2 = () => <span>🗑️</span>;
+const Mic = () => <span>🎤</span>;
+const CalendarIcon = () => <span>📅</span>;
+const List = () => <span>📜</span>;
+const Cloud = () => <span>☁️</span>;
+const Shirt = () => <span>👕</span>;
+const RefreshCw = () => <span>🔄</span>;
+const Download = () => <span>📥</span>;
+const AlertCircle = () => <span>⚠️</span>;
 
 const App = () => {
   const [activeTab, setActiveTab] = useState('morning');
