@@ -19,7 +19,7 @@ const App = () => {
   const [viewMode, setViewMode] = useState('list');
   const [showConfirmClear, setShowConfirmClear] = useState(false);
   
-  const GAS_URL = "https://script.google.com/macros/s/AKfycbxaGaeo6L708lZYNxTx0sj7fJT8T0X9sonf08pU8UAqZVkzQNRhdZ2iNXegXyNtWohawg/exec";
+  const GAS_URL = "https://script.google.com/macros/s/AKfycbx7DpDk1g0M4IbTbFfcNtzyfX_0ducDk-WMUOfwVGChmUtP5eDaVg6Gt1SaZ2NfADiVtw/exec";
 
   // 朝の情報（固定値ですが、服装提案を表示します）
   const weatherInfo = {
